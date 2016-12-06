@@ -1,0 +1,44 @@
+\documentclass{beamer}
+
+\usepackage{minted}
+
+\newminted{rust}{bgcolor=bg}
+
+\AtBeginSection[]{
+    \begin{frame}
+        \begin{center}
+            \usebeamerfont{title}\secname
+        \end{center}
+    \end{frame}
+}
+
+\AtBeginSubsection[]{
+    \begin{frame}
+        \begin{center}
+            \usebeamerfont{subtitle}\subsecname
+        \end{center}
+    \end{frame}
+}
+
+\title{FFI in Rust}
+\subtitle{Lessons from OpenSSL}
+\author[sfackler]{Steven Fackler - sfackler}
+\date{December 15, 2016}
+
+\begin{document}
+\definecolor{bg}{rgb}{.95,.95,.95}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+    \tableofcontents
+\end{frame}
+
+\section{Basics}
+
+\begin{frame}{FFI?}
+\end{frame}
+
+\end{document}
