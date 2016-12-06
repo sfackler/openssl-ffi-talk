@@ -3,6 +3,7 @@
 \usepackage{minted}
 
 \newminted{rust}{bgcolor=bg}
+\newminted{c}{bgcolor=bg}
 
 \AtBeginSection[]{
     \begin{frame}
@@ -28,17 +29,35 @@
 \begin{document}
 \definecolor{bg}{rgb}{.95,.95,.95}
 
-\begin{frame}
-    \titlepage
-\end{frame}
+\frame{\titlepage}
 
-\begin{frame}{Outline}
-    \tableofcontents
-\end{frame}
+\frame{\tableofcontents}
 
 \section{Basics}
 
 \begin{frame}{FFI?}
+
+\end{frame}
+
+\begin{frame}[fragile]{Example}
+    \begin{ccode}
+struct foo {
+    long a;
+    char *b;
+};
+int fizzbuzz(const struct foo *f);
+    \end{ccode}
+    \vspace{10pt}
+    \begin{rustcode}
+#[repr(C)]
+struct foo {
+    a: c_long,
+    b: *mut c_char,
+}
+extern {
+    fn fizzbuzz(f: *const foo) -> c_int;
+}
+    \end{rustcode}
 \end{frame}
 
 \end{document}
