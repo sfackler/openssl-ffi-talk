@@ -35,8 +35,20 @@
 
 \section{Basics}
 
-\begin{frame}{FFI?}
+\begin{frame}{What is FFI?}
+    \begin{quote}
+        ``A foreign function interface (FFI) is a mechanism by which a program written in one programming language can call routines or make use of services written in another.''
+    \end{quote}
+\end{frame}
 
+\begin{frame}{Why FFI?}
+    Lots of code has been written in languages that aren't Rust!
+
+    \begin{itemize}
+        \item Use Rust to accelerate portions of programs written in higher level languages. (jni, neon, ruru)
+        \item Expose a C interface for your Rust library. (regex)
+        \item Interact with libraries exposing C APIs. (openssl, curl, rusqlite)
+    \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]{Example}
