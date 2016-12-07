@@ -114,15 +114,50 @@ pub struct foo {
 
     \begin{itemize}
         \item libclang is a fairly heavyweight dependency.
-        \item It produces definitions valid in the environment it's run.
         \item It can be a bit verbose, particularly when system headers are
             included.
+        \item It produces definitions valid in the environment it's run.
     \end{itemize}
 
     rust-openssl does not use bindgen for its bindings.
 \end{frame}
 
-\begin{frame}{The Manual Approach}
+\begin{frame}[fragile]{The Manual Approach}
+    You will get things wrong if you try to do it by hand. \pause
+
+    \begin{rustcode}
+extern {
+    pub fn SSL_CTX_use_certificate_file(
+        ctx: *mut SSL_CTX,
+        cert_file: *const c_char,
+        file_type: c_int)
+        -> c_int;
+
+    pub fn SSL_CTX_use_certificate_chain_file(
+        ctx: *mut SSL_CTX,
+        cert_chain_file: *const c_char,
+        file_type: c_int) // OOPS
+        -> c_int;
+}
+    \end{rustcode}
+\end{frame}
+
+\begin{frame}[fragile]{Ctest}
+    The `ctest' crate will check that your bindings correctly correspond to the
+    C definitions.
+
+    \begin{verbatim}
+error: incompatible pointer types returning 'int
+    (SSL_CTX *, const char *)' (aka 'int (struct
+    ssl_ctx_st *, const char *)') from a function
+    with result type 'int (*)(SSL_CTX *, const
+    char *, int)' (aka 'int (*)(struct ssl_ctx_st *,
+    const char *, int)')
+    [-Werror,-Wincompatible-pointer-types]
+
+    return SSL_CTX_use_certificate_chain_file;
+           ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    \end{verbatim}
 \end{frame}
 
 \end{document}
