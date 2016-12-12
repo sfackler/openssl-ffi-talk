@@ -78,7 +78,7 @@ extern {
     \end{rustcode}
 \end{frame}
 
-\section{-sys Crates}
+\section{openssl-sys}
 
 \begin{frame}{-sys?}
     A `-sys' crate provides a direct transcription of a C API into Rust - think
@@ -142,7 +142,7 @@ extern {
     \end{rustcode}
 \end{frame}
 
-\begin{frame}[fragile]{Ctest}
+\begin{frame}[fragile]{ctest}
     The `ctest' crate will check that your bindings correctly correspond to the
     C definitions.
 
@@ -158,6 +158,183 @@ error: incompatible pointer types returning 'int
     return SSL_CTX_use_certificate_chain_file;
            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     \end{verbatim}
+\end{frame}
+
+\begin{frame}[fragile]{Version/Feature Detection}
+    OpenSSL releases are not binary compatible, but 1.0.1, 1.0.2, and 1.1.0 are
+    all supported by rust-openssl. Features have been added and removed;
+    structs have been made opaque.
+
+    OpenSSL's feature set can be customized at compile time. Constants,
+    functions, and even struct fields are removed!
+
+    \begin{ccode}
+struct ssl_ctx_st {
+    // ...
+    int references;
+    // ...
+#  ifndef OPENSSL_NO_TLSEXT
+    unsigned alpn_client_proto_list_len;
+    // ...
+#  endif
+    // ...
+};
+    \end{ccode}
+\end{frame}
+
+\begin{frame}[fragile]{Version/Feature Detection}
+    The \verb!opensslv.h! header contains \verb!#define!s for the version and
+    all compile time feature flags. Parse it in a build script and turn those
+    into Rust cfgs!
+
+    \begin{rustcode}
+#[repr(C)]
+pub struct SSL_CTX {
+    // ...
+    pub references: c_int,
+    // ...
+    #[cfg(all(not(osslconf = "OPENSSL_NO_TLSEXT"),
+              ossl102))]
+    alpn_client_proto_list_len: c_uint,
+    // ...
+}
+    \end{rustcode}
+\end{frame}
+
+\section{openssl}
+
+\subsection{Ownership}
+
+\begin{frame}{Figuring it Out}
+    Ownership semantics are as important to C libraries as they are in Rust,
+    but handled implicitly.
+
+    If you're lucky, your library defines ownership conventions:
+    \begin{itemize}
+        \item OpenSSL - get1/get0, set1/set0, add1/add0
+        \item Core Foundation - The Create Rule
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Figuring it Out}
+    These are probably not enough.
+
+    The majority of OpenSSL's APIs do not use the get1/get0 convention!
+
+    Some functions are special snowflakes - \verb!X509_STORE_add_cert! takes
+    ownership of its argument even when an error is encountered. \pause
+
+    \begin{center}
+        \LARGE The Source is the Only Source of Truth.
+    \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Translating}
+    openssl takes a dual-type approach - think \verb!Path!/\verb!PathBuf!:
+
+    \begin{rustcode}
+pub struct X509Ref(UnsafeCell<()>);
+
+pub struct X509(*mut ffi::X509);
+
+impl Drop for X509 { /* ... */ }
+
+impl Deref for X509 {
+    type Target = X509Ref;
+    // ...
+}
+
+impl DerefMut for X509 { /* ... */ }
+    \end{rustcode}
+\end{frame}
+
+\begin{frame}[fragile]{Fun With Pointers}
+    \begin{rustcode}
+impl X509Ref {
+    pub unsafe fn from_ptr<'a>(ptr: *mut ffi::X509)
+                               -> &'a X509Ref {
+        &*(ptr as *mut _)
+    }
+
+    pub fn as_ptr(&self) -> *mut ffi::X509 {
+        self as *const _ as *mut _
+    }
+}
+
+impl Deref for X509 {
+    fn deref(&self) -> &X509Ref {
+        unsafe { X509Ref::from_ptr(self.0) }
+    }
+}
+    \end{rustcode}
+\end{frame}
+
+\begin{frame}{Enums}
+    Rust enums are not like C enums!
+\end{frame}
+
+\begin{frame}{Callbacks}
+    Never forget about panics! Unwinding through non-Rust is undefined
+    behavior.
+\end{frame}
+
+\begin{frame}{Version/Feature Detection}
+    Recall:
+    \begin{itemize}
+        \item Three versions of OpenSSL supported. Each adds and removes
+            functionality.
+        \item Features can be disabled at OpenSSL build time.
+    \end{itemize}
+
+    Approach:
+    \begin{itemize}
+        \item Cargo features for each OpenSSL version. Each enables
+            functionality exposed in that version \emph{when linking against
+            it}. Crates can ask openssl-sys which version has been detected in
+            a build script.
+        \item Features that are disabled by OpenSSL build flags are simply
+            removed when those flags are set.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}{Stay True to the Library}
+
+\end{frame}
+
+\begin{frame}[fragile]{... But Not Always}
+    OpenSSL's default TLS configuration is a \textbf{nightmare}.
+
+    On the client side, certificate validation is disabled entirely by default
+    (!!). Even if you turn that on, hostname validation is either not supported
+    at all or must be enabled and configured separately.
+
+    On the server side, ephemeral key exchange is disabled by default. The
+    steps to enable ECDHE are different in \emph{each} of the OpenSSL versions
+    we support!
+
+    On both sides, SSLv2 and SSLv3 will be enabled by default (maybe), and the
+    default cipher suite list is larger than recommended.
+\end{frame}
+
+\begin{frame}[fragile]{... But Not Always}
+    \begin{center}
+        \Large If you are using an \verb!SslContext! directly, you are probably
+        doing it wrong.
+    \end{center}
+
+    \pause
+
+    Clients - \verb!SslConnector! provides a configuration modeled after Python
+    3.6's.
+
+    Servers - \verb!SslAcceptor! provides configurations modeled after the
+    modern and intermediate profiles of Mozilla's Server Side TLS
+    recommendations.
+\end{frame}
+
+\section{Wrapup}
+
+\begin{frame}{Questions?}
 \end{frame}
 
 \end{document}
