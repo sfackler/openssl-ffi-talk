@@ -346,22 +346,21 @@ fn foobar<F>(f: F) Result<(), ()> {
 \end{frame}
 
 \begin{frame}{Stay True to the Library}
-    
+
 \end{frame}
 
 \begin{frame}[fragile]{... But Not Always}
-    OpenSSL's default TLS configuration is a \textbf{nightmare}.
+    OpenSSL's TLS configuration is a minefield.
 
-    On the client side, certificate validation is disabled entirely by default
-    (!!). Even if you turn that on, hostname validation is either not supported
-    at all or must be enabled and configured separately.
-
-    On the server side, ephemeral key exchange is disabled by default. The
-    steps to enable ECDHE are different in \emph{each} of the OpenSSL versions
-    we support!
-
-    On both sides, SSLv2 and SSLv3 will be enabled by default (maybe), and the
-    default cipher suite list is larger than recommended.
+    \begin{itemize}
+        \item Default cipher list is overly permissive (RC4!).
+        \item SSLv2 and SSLv3 are enabled by default (maybe).
+        \item Ephemeral key exchange is disabled by default. Each supported
+            version requires different steps to enable ECDHE!
+        \item Certificate validation is disabled entirely by default.
+        \item Hostname validation is enabled separately and doesn't even exist
+            in 1.0.1.
+    \end{itemize}
 \end{frame}
 
 \begin{frame}[fragile]{... But Not Always}
