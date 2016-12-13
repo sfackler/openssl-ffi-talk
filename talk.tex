@@ -269,13 +269,61 @@ impl Deref for X509 {
     \end{rustcode}
 \end{frame}
 
-\begin{frame}{Enums}
+\begin{frame}[fragile]{Enums}
     Rust enums are not like C enums!
+
+    Adding to a Rust enum is not backwards compatible.
+
+    What do you do when C returns a value you don't expect?
+
+    \begin{rustcode}
+pub struct Padding(c_int);
+
+pub const PKCS1_PADDING: Padding =
+    Padding(ffi::RSA_PKCS1_PADDING);
+    \end{rustcode}
 \end{frame}
 
-\begin{frame}{Callbacks}
+\begin{frame}[fragile]{Panic Tunnelling}
     Never forget about panics! Unwinding through non-Rust is undefined
     behavior.
+
+    \begin{minted}[fontsize=\footnotesize,bgcolor=bg]{rust}
+struct Callback<F> { f: F, p: Option<Box<Any+Send+'static>> }
+
+unsafe extern fn raw_cb<F>(data: *mut c_void) -> c_int
+    where F: FnMut()
+{
+    let data: &mut Callback<F> = &*(data as *mut _);
+
+    match panic::catch_unwind(AssertUnwindSafe(|| (data.f)()) {
+        Ok(()) => 1,
+        Err(err) => {
+            data.panic = Some(err);
+            0
+        }
+    }
+}
+    \end{minted}
+\end{frame}
+
+\begin{frame}[fragile]{Panic Tunnelling}
+    \begin{rustcode}
+fn foobar<F>(f: F) Result<(), ()> {
+    let mut cb = Callback { f: f, p: None };
+    let r = ffi::foobar(raw_cb::<F>,
+                        &mut cb as *mut _ as *mut _);
+    if r == 1 {
+        Ok(())
+    } else {
+        if let Some(err) = callback.p {
+            panic::resume_unwind(p);
+        } else {
+            Err(())
+        }
+    }
+}
+    \end{rustcode}
 \end{frame}
 
 \begin{frame}{Version/Feature Detection}
@@ -298,7 +346,7 @@ impl Deref for X509 {
 \end{frame}
 
 \begin{frame}{Stay True to the Library}
-
+    
 \end{frame}
 
 \begin{frame}[fragile]{... But Not Always}
@@ -335,6 +383,13 @@ impl Deref for X509 {
 \section{Wrapup}
 
 \begin{frame}{Questions?}
+    sfackler in \#rust
+
+    \url{https://github.com/sfackler/rust-openssl}
+
+    \url{https://github.com/alexcrichton/ctest}
+
+    \url{https://wiki.mozilla.org/Security/Server_Side_TLS}
 \end{frame}
 
 \end{document}
