@@ -33,30 +33,6 @@
 
 \frame{\titlepage}
 
-\frame{\tableofcontents}
-
-\section{Basics}
-
-\begin{frame}{What is FFI?}
-    \begin{quote}
-        ``A foreign function interface (FFI) is a mechanism by which a program
-        written in one programming language can call routines or make use of
-        services written in another.''
-    \end{quote}
-\end{frame}
-
-\begin{frame}{Why FFI?}
-    Lots of code has been written in languages that aren't Rust!
-
-    \begin{itemize}
-        \item Use Rust to accelerate portions of programs written in higher
-            level languages. (jni, neon, ruru)
-        \item Expose a C interface for your Rust library. (regex)
-        \item Interact with libraries exposing C APIs. (openssl, curl,
-            rusqlite)
-    \end{itemize}
-\end{frame}
-
 \begin{frame}[fragile]{Example}
     \begin{ccode}
 struct foo {
@@ -65,6 +41,7 @@ struct foo {
 };
 int fizzbuzz(const struct foo *f);
     \end{ccode}
+    \pause
     \vspace{10pt}
     \begin{rustcode}
 #[repr(C)]
@@ -123,23 +100,42 @@ pub struct foo {
 \end{frame}
 
 \begin{frame}[fragile]{The Manual Approach}
-    You will get things wrong if you try to do it by hand. \pause
+    You will get things wrong if you try to do it by hand.
 
-    \begin{rustcode}
-extern {
-    pub fn SSL_CTX_use_certificate_file(
-        ctx: *mut SSL_CTX,
-        cert_file: *const c_char,
-        file_type: c_int)
-        -> c_int;
+    \begin{onlyenv}<+>
+        \begin{rustcode}
+    extern {
+        pub fn SSL_CTX_use_certificate_file(
+            ctx: *mut SSL_CTX,
+            cert_file: *const c_char,
+            file_type: c_int)
+            -> c_int;
 
-    pub fn SSL_CTX_use_certificate_chain_file(
-        ctx: *mut SSL_CTX,
-        cert_chain_file: *const c_char,
-        file_type: c_int) // OOPS
-        -> c_int;
-}
-    \end{rustcode}
+        pub fn SSL_CTX_use_certificate_chain_file(
+            ctx: *mut SSL_CTX,
+            cert_chain_file: *const c_char,
+            file_type: c_int)
+            -> c_int;
+    }
+        \end{rustcode}
+    \end{onlyenv}
+    \begin{onlyenv}<+>
+        \begin{rustcode}
+    extern {
+        pub fn SSL_CTX_use_certificate_file(
+            ctx: *mut SSL_CTX,
+            cert_file: *const c_char,
+            file_type: c_int)
+            -> c_int;
+
+        pub fn SSL_CTX_use_certificate_chain_file(
+            ctx: *mut SSL_CTX,
+            cert_chain_file: *const c_char,
+            file_type: c_int) // OOPS!
+            -> c_int;
+    }
+        \end{rustcode}
+    \end{onlyenv}
 \end{frame}
 
 \begin{frame}[fragile]{ctest}
@@ -285,10 +281,22 @@ pub const PKCS1_PADDING: Padding =
 \end{frame}
 
 \begin{frame}[fragile]{Panic Tunnelling}
-    Never forget about panics! Unwinding through non-Rust is undefined
-    behavior.
+    \begin{onlyenv}<+>
+        Never forget about panics! Unwinding through non-Rust is undefined
+        behavior.
 
-    \begin{minted}[fontsize=\footnotesize,bgcolor=bg]{rust}
+        \begin{ccode}
+int foobar(int (*cb)(void *), void *data);
+        \end{ccode}
+        \vspace{10pt}
+        \begin{rustcode}
+fn foobar<F>(f: F) -> Result<(), Error>
+    where F: FnMut();
+        \end{rustcode}
+    \end{onlyenv}
+
+    \begin{onlyenv}<+>
+        \begin{minted}[fontsize=\footnotesize,bgcolor=bg]{rust}
 struct Callback<F> { f: F, p: Option<Box<Any+Send+'static>> }
 
 unsafe extern fn raw_cb<F>(data: *mut c_void) -> c_int
@@ -304,12 +312,14 @@ unsafe extern fn raw_cb<F>(data: *mut c_void) -> c_int
         }
     }
 }
-    \end{minted}
-\end{frame}
+        \end{minted}
+    \end{onlyenv}
 
-\begin{frame}[fragile]{Panic Tunnelling}
-    \begin{rustcode}
-fn foobar<F>(f: F) Result<(), ()> {
+    \begin{onlyenv}<+>
+        \begin{rustcode}
+fn foobar<F>(f: F) Result<(), Error>
+    where F: FnMut()
+{
     let mut cb = Callback { f: f, p: None };
     let r = ffi::foobar(raw_cb::<F>,
                         &mut cb as *mut _ as *mut _);
@@ -319,11 +329,12 @@ fn foobar<F>(f: F) Result<(), ()> {
         if let Some(err) = callback.p {
             panic::resume_unwind(p);
         } else {
-            Err(())
+            Err(Error(...))
         }
     }
 }
-    \end{rustcode}
+        \end{rustcode}
+    \end{onlyenv}
 \end{frame}
 
 \begin{frame}{Version/Feature Detection}
@@ -346,7 +357,13 @@ fn foobar<F>(f: F) Result<(), ()> {
 \end{frame}
 
 \begin{frame}{Stay True to the Library}
+    It should be obvious to people familiar with the C library how to use your
+    layer.
 
+    Lean towards 1:1 mappings from things in the C library to your crate.
+
+    There's a somewhat fine line to walk between Rustifying the API and burying
+    it too deep.
 \end{frame}
 
 \begin{frame}[fragile]{... But Not Always}
